@@ -1,0 +1,206 @@
+service: geofyle-backend
+
+frameworkVersion: '4'
+
+plugins:
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3000
+    noPrependStageInUrl: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  memorySize: 256
+  timeout: 30
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  environment:
+    FILES_TABLE: ${self:service}-${self:provider.stage}-files
+    FILES_BUCKET: ${self:service}-${self:provider.stage}-files
+    MAX_FILE_SIZE_BYTES: 5242880 # 5MB
+    DEFAULT_RADIUS_METERS: 100
+    FILE_RETENTION_DAYS: 30
+    API_BASE_URL: 
+      Fn::Join:
+        - ''
+        - - 'https://'
+          - Ref: ApiGatewayRestApi
+          - '.execute-api.'
+          - Ref: AWS::Region
+          - '.amazonaws.com/${self:provider.stage}'
+  
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - !GetAtt FilesTable.Arn
+            - !Join ['', [!GetAtt FilesTable.Arn, '/index/GeohashIndex']]
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: !GetAtt UsersTable.Arn
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource: !Join ['', [!GetAtt FilesBucket.Arn, '/*']]
+
+functions:
+  authorizer:
+    handler: src/middleware/authorizer.handler
+
+  getNearbyFiles:
+    handler: src/handlers/getNearbyFiles.handler
+    events:
+      - http:
+          path: /files
+          method: get
+          authorizer: authorizer
+          cors: true
+
+  uploadFile:
+    handler: src/handlers/uploadFile.handler
+    events:
+      - http:
+          path: /files
+          method: post
+          authorizer: authorizer
+          cors: true
+
+  getFileDetails:
+    handler: src/handlers/getFileDetails.handler
+    events:
+      - http:
+          path: /files/{fileId}
+          method: get
+          authorizer: authorizer
+          cors: true
+
+  deleteFile:
+    handler: src/handlers/deleteFile.handler
+    events:
+      - http:
+          path: /files/{fileId}
+          method: delete
+          authorizer: authorizer
+          cors: true
+
+  downloadFile:
+    handler: src/handlers/downloadFile.handler
+    events:
+      - http:
+          path: /files/{fileId}/download
+          method: get
+          authorizer: authorizer
+          cors: true
+
+  cleanupExpiredFiles:
+    handler: src/handlers/cleanupExpiredFiles.handler
+    events:
+      - schedule: rate(1 day)
+
+  authenticateUser:
+    handler: src/handlers/authenticateUser.handler
+    events:
+      - http:
+          path: /users/authenticate
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    # DynamoDB Table for Files
+    FilesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.FILES_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: geohash
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: GeohashIndex
+            KeySchema:
+              - AttributeName: geohash
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+
+    # DynamoDB Table for Users
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${self:provider.stage}-users
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: deviceId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: deviceId
+            KeyType: HASH
+
+    # S3 Bucket for Files
+    FilesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.FILES_BUCKET}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+              AllowedOrigins:
+                - '*'
+              MaxAge: 3600
+        LifecycleConfiguration:
+          Rules:
+            - Id: ExpireOldFiles
+              Status: Enabled
+              ExpirationInDays: 31 # One day buffer after DynamoDB expiration
+
+  Outputs:
+    ApiEndpoint:
+      Description: API Gateway endpoint URL
+      Value:
+        Fn::Join:
+          - ''
+          - - 'https://'
+            - Ref: ApiGatewayRestApi
+            - '.execute-api.'
+            - Ref: AWS::Region
+            - '.amazonaws.com/${self:provider.stage}'
+    FilesBucket:
+      Description: S3 bucket for file storage
+      Value: !Ref FilesBucket
+    FilesTable:
+      Description: DynamoDB table for file metadata
+      Value: !Ref FilesTable

@@ -1,0 +1,506 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "GeoFyle API",
+    "description": "API for GeoFyle - a location-based file sharing service allowing users to upload, discover, and download files based on geographic proximity",
+    "version": "1.0.0",
+    "contact": {
+      "email": "support@geofyle.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.geofyle.com/v1",
+      "description": "Production server"
+    },
+    {
+      "url": "https://dev-api.geofyle.com/v1",
+      "description": "Development server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "files",
+      "description": "File operations"
+    },
+    {
+      "name": "users",
+      "description": "User operations"
+    }
+  ],
+  "paths": {
+    "/files": {
+      "get": {
+        "tags": ["files"],
+        "summary": "Get nearby files",
+        "description": "Returns a list of files near the specified location",
+        "operationId": "getNearbyFiles",
+        "parameters": [
+          {
+            "name": "latitude",
+            "in": "query",
+            "description": "Latitude coordinate",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "description": "Longitude coordinate",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "radius",
+            "in": "query",
+            "description": "Search radius in meters (default: 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FileItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["files"],
+        "summary": "Upload a file",
+        "description": "Initiates a file upload by generating a presigned S3 URL",
+        "operationId": "uploadFile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "File name"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "File description"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Latitude coordinate"
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Longitude coordinate"
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "description": "MIME type of the file"
+                  },
+                  "fileSize": {
+                    "type": "integer",
+                    "description": "Size of the file in bytes"
+                  },
+                  "retentionHours": {
+                    "type": "integer",
+                    "description": "Number of hours to retain the file",
+                    "default": 720
+                  }
+                },
+                "required": ["name", "description", "latitude", "longitude", "contentType", "fileSize"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Upload initiated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "$ref": "#/components/schemas/FileItem"
+                    },
+                    "uploadUrl": {
+                      "type": "string",
+                      "description": "Presigned URL for uploading the file"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/{fileId}": {
+      "get": {
+        "tags": ["files"],
+        "summary": "Get file details",
+        "description": "Returns details about a specific file",
+        "operationId": "getFileDetails",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "description": "ID of the file to retrieve",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileItem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["files"],
+        "summary": "Delete a file",
+        "description": "Deletes a specific file",
+        "operationId": "deleteFile",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "description": "ID of the file to delete",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "File deleted successfully"
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/{fileId}/download": {
+      "get": {
+        "tags": ["files"],
+        "summary": "Download a file",
+        "description": "Generates a presigned URL for downloading a file - requires user to be within range",
+        "operationId": "downloadFile",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "description": "ID of the file to download",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "description": "User's current latitude",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "description": "User's current longitude",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "downloadUrl": {
+                      "type": "string",
+                      "description": "Presigned URL for downloading the file"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "User not within range of file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/authenticate": {
+      "post": {
+        "tags": ["users"],
+        "summary": "Authenticate user",
+        "description": "Authenticates a user and returns a token",
+        "operationId": "authenticateUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "deviceId": {
+                    "type": "string",
+                    "description": "Unique device identifier"
+                  }
+                },
+                "required": ["deviceId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FileItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique file identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "File name"
+          },
+          "description": {
+            "type": "string",
+            "description": "File description"
+          },
+          "size": {
+            "type": "number",
+            "description": "File size in bytes"
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of the file"
+          },
+          "location": {
+            "$ref": "#/components/schemas/GeoPoint"
+          },
+          "uploadTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time when the file was uploaded"
+          },
+          "expirationTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time when the file will expire"
+          },
+          "downloadCount": {
+            "type": "integer",
+            "description": "Number of times the file has been downloaded"
+          }
+        },
+        "required": ["id", "name", "description", "size", "mimeType", "location", "uploadTime", "expirationTime"]
+      },
+      "GeoPoint": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "description": "Latitude coordinate"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "description": "Longitude coordinate"
+          }
+        },
+        "required": ["latitude", "longitude"]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Error code"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional error details"
+          }
+        },
+        "required": ["code", "message"]
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
+}
