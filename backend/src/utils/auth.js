@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const { getItem, putItem } = require('./dynamodb');
 
 // For demo purposes, we're using a simple JWT-like token
 // In production, you would use a proper JWT library with better security

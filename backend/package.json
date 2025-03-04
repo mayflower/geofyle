@@ -8,8 +8,10 @@
     "test:unit": "jest tests/unit",
     "test:integration": "jest tests/integration",
     "lint": "eslint .",
-    "deploy": "npx serverless deploy",
-    "deploy:prod": "npx serverless deploy --stage prod",
+    "deploy": "npx serverless deploy --verbose",
+    "deploy:prod": "npx serverless deploy --stage prod --verbose",
+    "deploy:domain": "npx serverless deploy --verbose --domain api.geofyle.com --hostedZoneId",
+    "deploy:prod:domain": "npx serverless deploy --stage prod --verbose --domain api.geofyle.com --hostedZoneId",
     "local": "npx serverless offline start",
     "remove": "npx serverless remove"
   },
@@ -20,7 +22,7 @@
     "file-sharing"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.540.0",
     "@aws-sdk/client-s3": "^3.540.0",
@@ -31,10 +33,10 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "eslint": "^9.21.0",
+    "eslint": "^8.57.0",
     "jest": "^29.7.0",
-    "aws-sdk-mock": "^6.2.1",
     "serverless": "^4.7.0",
+    "serverless-domain-manager": "^8.0.0",
     "serverless-offline": "^14.4.0"
   }
 }

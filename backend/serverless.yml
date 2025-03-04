@@ -4,11 +4,35 @@ frameworkVersion: '4'
 
 plugins:
   - serverless-offline
+  - serverless-domain-manager
 
 custom:
   serverless-offline:
     httpPort: 3000
     noPrependStageInUrl: true
+  customDomain:
+    domainName: ${opt:domain, 'api.geofyle.com'}
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+    endpointType: 'regional'
+    securityPolicy: tls_1_2
+    apiType: rest
+    autoDomain: true
+    # Use the existing hosted zone
+    hostedZoneId: ${opt:hostedZoneId, ''}
+  
+  # API Base URL for custom domain
+  apiBaseUrl: https://${self:custom.customDomain.domainName}/${self:provider.stage}
+  
+  # Fallback API URL if custom domain is not set up
+  fallbackApiBaseUrl:
+    Fn::Join:
+      - ''
+      - - 'https://'
+        - Ref: ApiGatewayRestApi
+        - '.execute-api.'
+        - Ref: AWS::Region
+        - '.amazonaws.com/${self:provider.stage}'
 
 provider:
   name: aws
@@ -23,14 +47,14 @@ provider:
     MAX_FILE_SIZE_BYTES: 5242880 # 5MB
     DEFAULT_RADIUS_METERS: 100
     FILE_RETENTION_DAYS: 30
-    API_BASE_URL: 
-      Fn::Join:
-        - ''
-        - - 'https://'
-          - Ref: ApiGatewayRestApi
-          - '.execute-api.'
-          - Ref: AWS::Region
-          - '.amazonaws.com/${self:provider.stage}'
+    API_BASE_URL: ${self:custom.apiBaseUrl, self:custom.fallbackApiBaseUrl}
+  
+  # Custom variables for API URL
+  variablesResolutionMode: 20210326
+  
+  # Enable CORS for all endpoints
+  httpApi:
+    cors: true
   
   iam:
     role:

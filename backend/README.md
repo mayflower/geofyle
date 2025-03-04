@@ -75,6 +75,20 @@ npm run deploy
 npm run deploy:prod
 ```
 
+#### Custom Domain Deployment
+
+The project uses `serverless-domain-manager` to configure a custom domain with the existing hosted zone in your AWS account:
+
+```bash
+# Deploy with custom domain (using default domain: api.geofyle.com)
+npm run deploy:domain YOUR_HOSTED_ZONE_ID
+
+# Deploy to production with custom domain
+npm run deploy:prod:domain YOUR_HOSTED_ZONE_ID
+```
+
+Since the domain and hosted zone already exist in your AWS account, the deployment will automatically use them.
+
 To remove all resources from AWS:
 
 ```bash
@@ -97,12 +111,14 @@ You can modify these variables in the `serverless.yml` file or override them dur
 
 ## API Usage
 
+All examples below use the custom domain. Replace `api.geofyle.com/prod` with your deployed API endpoint if you're not using a custom domain.
+
 ### Authentication
 
 Before using the API, clients must authenticate:
 
 ```bash
-curl -X POST https://your-api-endpoint/dev/users/authenticate \
+curl -X POST https://api.geofyle.com/prod/users/authenticate \
   -H "Content-Type: application/json" \
   -d '{"deviceId": "unique-device-identifier"}'
 ```
@@ -117,14 +133,14 @@ This returns a JWT token:
 
 Use this token in subsequent requests:
 ```bash
-curl -H "Authorization: Bearer eyJhbG..." https://your-api-endpoint/dev/files
+curl -H "Authorization: Bearer eyJhbG..." https://api.geofyle.com/prod/files
 ```
 
 ### Uploading Files
 
 1. Request a presigned URL:
    ```bash
-   curl -X POST https://your-api-endpoint/dev/files \
+   curl -X POST https://api.geofyle.com/prod/files \
      -H "Authorization: Bearer eyJhbG..." \
      -H "Content-Type: application/json" \
      -d '{
@@ -148,7 +164,7 @@ curl -H "Authorization: Bearer eyJhbG..." https://your-api-endpoint/dev/files
 ### Finding Nearby Files
 
 ```bash
-curl -X GET "https://your-api-endpoint/dev/files?latitude=40.7128&longitude=-74.0060&radius=200" \
+curl -X GET "https://api.geofyle.com/prod/files?latitude=40.7128&longitude=-74.0060&radius=200" \
   -H "Authorization: Bearer eyJhbG..."
 ```
 
@@ -156,7 +172,7 @@ curl -X GET "https://your-api-endpoint/dev/files?latitude=40.7128&longitude=-74.
 
 1. Get a download URL:
    ```bash
-   curl -X GET "https://your-api-endpoint/dev/files/file-id/download?latitude=40.7128&longitude=-74.0060" \
+   curl -X GET "https://api.geofyle.com/prod/files/file-id/download?latitude=40.7128&longitude=-74.0060" \
      -H "Authorization: Bearer eyJhbG..."
    ```
 
@@ -241,14 +257,14 @@ The backend provides a fixed API endpoint URL for the Flutter frontend app to us
 
 1. **Default Configuration**: The Serverless Framework automatically sets the `API_BASE_URL` environment variable to the deployed API Gateway endpoint URL.
 
-2. **Custom Domain**: For production environments, you can configure a custom domain in `serverless.yml`.
+2. **Custom Domain**: We've configured a custom domain in `serverless.yml` that uses the existing hosted zone in your AWS account. The API will be accessible at `https://api.geofyle.com/prod` after deployment.
 
 3. **In Flutter App**: Use the following code to access the backend API:
 
    ```dart
    // api_service.dart
    class ApiService {
-     // Use this fixed API endpoint URL in your Flutter app
+     // Use this fixed API endpoint URL in your Flutter app with the custom domain
      static const String baseUrl = 'https://api.geofyle.com/prod';
      // For development, you can override this with your deployed endpoint
      // static const String baseUrl = 'https://your-api-id.execute-api.region.amazonaws.com/dev';
@@ -271,4 +287,4 @@ The backend provides a fixed API endpoint URL for the Flutter frontend app to us
 
 ## License
 
-This project is licensed under the ISC License.
+This project is licensed under the MIT License.

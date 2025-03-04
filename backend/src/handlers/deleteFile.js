@@ -1,6 +1,6 @@
 const { getItem, deleteItem } = require('../utils/dynamodb');
 const { deleteFile: deleteS3File } = require('../utils/s3');
-const { success, error } = require('../utils/response');
+const { error } = require('../utils/response');
 
 /**
  * Handler for deleting a file

@@ -8,7 +8,7 @@ const { deleteFile } = require('../utils/s3');
  * @param {Object} event - CloudWatch Events event
  * @returns {Object} Result of cleanup operation
  */
-exports.handler = async (event) => {
+exports.handler = async () => {
   try {
     console.log('Starting expired files cleanup process');
     
@@ -51,7 +51,7 @@ exports.handler = async (event) => {
     console.log(`Cleanup completed: ${deletionResults.successful.length} files successfully deleted, ${deletionResults.failed.length} failed`);
     
     return {
-      message: `Expired files cleanup completed`,
+      message: 'Expired files cleanup completed',
       deleted: deletionResults.successful.length,
       failed: deletionResults.failed.length,
       details: deletionResults
